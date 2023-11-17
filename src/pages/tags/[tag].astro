@@ -1,27 +1,56 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import BlogPost from '../../components/BlogPost.astro';
+import type {
+  GetStaticPaths,
+  GetStaticPathsResult,
+  InferGetStaticParamsType,
+  InferGetStaticPropsType,
+  MarkdownInstance,
+} from "astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import BlogPost from "../../components/BlogPost.astro";
 
-export async function getStaticPaths() {
-  const allPosts = await Astro.glob('../posts/*.md');
-
-  const uniqueTags = [...new Set(allPosts.map((post) => post.frontmatter.tags).flat())];
-
-  return uniqueTags.map((tag) => {
-    const filteredPosts = allPosts.filter((post) => post.frontmatter.tags.includes(tag));
-    return {
-      params: { tag },
-      props: { posts: filteredPosts },
-    };
-  });
+interface Frontmatter {
+  title: string;
+  tags: string[];
 }
 
-const { tag } = Astro.params;
-const { posts } = Astro.props;
+interface StaticPaths {
+  params: { tag: string };
+  props: { posts: MarkdownInstance<Frontmatter>[] };
+}
+
+export const getStaticPaths = ((): Promise<StaticPaths[]> => {
+  return Astro.glob<Frontmatter>("../posts/*.md").then((allPosts) => {
+    const uniqueTags = [
+      ...new Set(allPosts.map((post) => post.frontmatter.tags).flat()),
+    ];
+
+    return uniqueTags.map((tag) => {
+      const filteredPosts = allPosts.filter((post) =>
+        post.frontmatter.tags.includes(tag),
+      );
+      return {
+        params: { tag },
+        props: { posts: filteredPosts },
+      };
+    });
+  });
+}) satisfies GetStaticPaths;
+
+type Params = InferGetStaticParamsType<typeof getStaticPaths>;
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { tag } = Astro.params as Params;
+const { posts } = Astro.props as Props;
 ---
+
 <BaseLayout pageTitle={tag}>
   <p>Posts tagged with {tag}</p>
   <ul>
-    {posts.map((post) => <BlogPost url={post.url} title={post.frontmatter.title} />)}
+    {
+      posts.map((post) => (
+        <BlogPost url={post.url} title={post.frontmatter.title} />
+      ))
+    }
   </ul>
 </BaseLayout>
